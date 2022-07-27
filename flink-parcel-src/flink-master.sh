@@ -8,6 +8,103 @@ bin=`cd "$bin"; pwd`
 
 . "$bin"/config.sh
 
+parseBytes() {
+    text=$1
+
+    trimmed=$(echo -e "${text}" | tr -d '[:space:]')
+
+    if [ -z "$trimmed" -o "$trimmed" == " " ]; then
+        echo "$trimmed is an empty- or whitespace-only string"
+	exit 1
+    fi
+
+    len=${#trimmed}
+    pos=0
+
+    while [ $pos -lt $len ]; do
+	current=${trimmed:pos:1}
+	if [[ ! $current < '0' ]] && [[ ! $current > '9' ]]; then
+	    let pos+=1
+	else
+	    break
+	fi
+    done
+
+    number=${trimmed:0:pos}
+
+    unit=${trimmed:$pos}
+    unit=$(echo -e "${unit}" | tr -d '[:space:]')
+    unit=$(echo -e "${unit}" | tr '[A-Z]' '[a-z]')
+
+    if [ -z "$number" ]; then
+        echo "text does not start with a number"
+        exit 1
+    fi
+
+    local multiplier
+    if [ -z "$unit" ]; then
+        multiplier=1
+    else
+        if matchesAny $unit "${BYTES_UNITS[*]}"; then
+            multiplier=1
+        elif matchesAny $unit "${KILO_BYTES_UNITS[*]}"; then
+                multiplier=1024
+        elif matchesAny $unit "${MEGA_BYTES_UNITS[*]}"; then
+                multiplier=`expr 1024 * 1024`
+        elif matchesAny $unit "${GIGA_BYTES_UNITS[*]}"; then
+                multiplier=`expr 1024 * 1024 * 1024`
+        elif matchesAny $unit "${TERA_BYTES_UNITS[*]}"; then
+                multiplier=`expr 1024 * 1024 * 1024 * 1024`
+        else
+            echo "[ERROR] Memory size unit $unit does not match any of the recognized units"
+            exit 1
+        fi
+    fi
+
+    ((result=$number * $multiplier))
+
+    if [ $[result / multiplier] != "$number" ]; then
+        echo "[ERROR] The value $text cannot be re represented as 64bit number of bytes (numeric overflow)."
+        exit 1
+    fi
+
+    echo "$result"
+}
+
+matchesAny() {
+    str=$1
+    variants=$2
+
+    for s in ${variants[*]}; do
+        if [ $str == $s ]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+getKibiBytes() {
+    bytes=$1
+    echo "$(($bytes >>10))"
+}
+
+getMebiBytes() {
+    bytes=$1
+    echo "$(($bytes >> 20))"
+}
+
+getGibiBytes() {
+    bytes=$1
+    echo "$(($bytes >> 30))"
+}
+
+getTebiBytes() {
+    bytes=$1
+    echo "$(($bytes >> 40))"
+}
+
+
 if [ ! -z "${FLINK_JM_HEAP_MB}" ] && [ "${FLINK_JM_HEAP}" == 0 ]; then
     echo "used deprecated key \`${KEY_JOBM_MEM_MB}\`, please replace with key \`${KEY_JOBM_MEM_SIZE}\`"
 else

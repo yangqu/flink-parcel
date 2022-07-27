@@ -6,6 +6,28 @@ bin=`cd "$bin"; pwd`
 # get Flink config
 . "$bin"/config.sh
 
+rotateLogFilesWithPrefix() {
+    dir=$1
+    prefix=$2
+    while read -r log ; do
+        rotateLogFile "$log"
+    # find distinct set of log file names, ignoring the rotation number (trailing dot and digit)
+    done < <(find "$dir" ! -type d -path "${prefix}*" | sed s/.[0-9][0-9]*$// | sort | uniq)
+}
+
+rotateLogFile() {
+    log=$1;
+    num=$MAX_LOG_FILE_NUMBER
+    if [ -f "$log" -a "$num" -gt 0 ]; then
+        while [ $num -gt 1 ]; do
+            prev=`expr $num - 1`
+            [ -f "$log.$prev" ] && mv "$log.$prev" "$log.$num"
+            num=$prev
+        done
+        mv "$log" "$log.$num";
+    fi
+}
+
 JVM_ARGS="$JVM_ARGS -Xmx512m"
 CLASS_TO_RUN=org.apache.flink.yarn.cli.FlinkYarnSessionCli
 
