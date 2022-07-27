@@ -104,6 +104,53 @@ getTebiBytes() {
     echo "$(($bytes >> 40))"
 }
 
+constructFlinkClassPath() {
+    local FLINK_DIST
+    local FLINK_CLASSPATH
+
+    while read -d '' -r jarfile ; do
+        if [[ "$jarfile" =~ .*/flink-dist[^/]*.jar$ ]]; then
+            FLINK_DIST="$FLINK_DIST":"$jarfile"
+        elif [[ "$FLINK_CLASSPATH" == "" ]]; then
+            FLINK_CLASSPATH="$jarfile";
+        else
+            FLINK_CLASSPATH="$FLINK_CLASSPATH":"$jarfile"
+        fi
+    done < <(find "$FLINK_LIB_DIR" ! -type d -name '*.jar' -print0 | sort -z)
+
+    if [[ "$FLINK_DIST" == "" ]]; then
+        # write error message to stderr since stdout is stored as the classpath
+        (>&2 echo "[ERROR] Flink distribution jar not found in $FLINK_LIB_DIR.")
+
+        # exit function with empty classpath to force process failure
+        exit 1
+    fi
+
+    echo "$FLINK_CLASSPATH""$FLINK_DIST"
+}
+
+rotateLogFile() {
+    log=$1;
+    num=$MAX_LOG_FILE_NUMBER
+    if [ -f "$log" -a "$num" -gt 0 ]; then
+        while [ $num -gt 1 ]; do
+            prev=`expr $num - 1`
+            [ -f "$log.$prev" ] && mv "$log.$prev" "$log.$num"
+            num=$prev
+        done
+        mv "$log" "$log.$num";
+    fi
+}
+
+manglePathList() {
+    UNAME=$(uname -s)
+    # a path list, for example a java classpath
+    if [ "${UNAME:0:6}" == "CYGWIN" ]; then
+        echo `cygpath -wp "$1"`
+    else
+        echo $1
+    fi
+}
 
 if [ ! -z "${FLINK_JM_HEAP_MB}" ] && [ "${FLINK_JM_HEAP}" == 0 ]; then
     echo "used deprecated key \`${KEY_JOBM_MEM_MB}\`, please replace with key \`${KEY_JOBM_MEM_SIZE}\`"

@@ -28,6 +28,41 @@ rotateLogFile() {
     fi
 }
 
+constructFlinkClassPath() {
+    local FLINK_DIST
+    local FLINK_CLASSPATH
+
+    while read -d '' -r jarfile ; do
+        if [[ "$jarfile" =~ .*/flink-dist[^/]*.jar$ ]]; then
+            FLINK_DIST="$FLINK_DIST":"$jarfile"
+        elif [[ "$FLINK_CLASSPATH" == "" ]]; then
+            FLINK_CLASSPATH="$jarfile";
+        else
+            FLINK_CLASSPATH="$FLINK_CLASSPATH":"$jarfile"
+        fi
+    done < <(find "$FLINK_LIB_DIR" ! -type d -name '*.jar' -print0 | sort -z)
+
+    if [[ "$FLINK_DIST" == "" ]]; then
+        # write error message to stderr since stdout is stored as the classpath
+        (>&2 echo "[ERROR] Flink distribution jar not found in $FLINK_LIB_DIR.")
+
+        # exit function with empty classpath to force process failure
+        exit 1
+    fi
+
+    echo "$FLINK_CLASSPATH""$FLINK_DIST"
+}
+
+manglePathList() {
+    UNAME=$(uname -s)
+    # a path list, for example a java classpath
+    if [ "${UNAME:0:6}" == "CYGWIN" ]; then
+        echo `cygpath -wp "$1"`
+    else
+        echo $1
+    fi
+}
+
 JVM_ARGS="$JVM_ARGS -Xmx512m"
 CLASS_TO_RUN=org.apache.flink.yarn.cli.FlinkYarnSessionCli
 
