@@ -152,6 +152,15 @@ manglePathList() {
     fi
 }
 
+rotateLogFilesWithPrefix() {
+    dir=$1
+    prefix=$2
+    while read -r log ; do
+        rotateLogFile "$log"
+    # find distinct set of log file names, ignoring the rotation number (trailing dot and digit)
+    done < <(find "$dir" ! -type d -path "${prefix}*" | sed s/.[0-9][0-9]*$// | sort | uniq)
+}
+
 if [ ! -z "${FLINK_JM_HEAP_MB}" ] && [ "${FLINK_JM_HEAP}" == 0 ]; then
     echo "used deprecated key \`${KEY_JOBM_MEM_MB}\`, please replace with key \`${KEY_JOBM_MEM_SIZE}\`"
 else

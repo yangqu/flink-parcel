@@ -154,6 +154,15 @@ manglePathList() {
     fi
 }
 
+rotateLogFilesWithPrefix() {
+    dir=$1
+    prefix=$2
+    while read -r log ; do
+        rotateLogFile "$log"
+    # find distinct set of log file names, ignoring the rotation number (trailing dot and digit)
+    done < <(find "$dir" ! -type d -path "${prefix}*" | sed s/.[0-9][0-9]*$// | sort | uniq)
+}
+
 # if memory allocation mode is lazy and no other JVM options are set,
 # set the 'Concurrent Mark Sweep GC'
 if [[ $FLINK_TM_MEM_PRE_ALLOCATE == "false" ]] && [ -z "${FLINK_ENV_JAVA_OPTS}" ] && [ -z "${FLINK_ENV_JAVA_OPTS_TM}" ]; then
